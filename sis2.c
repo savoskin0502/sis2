@@ -17,10 +17,15 @@ MODULE_AUTHOR("Savoskin Roman, Biryukova Alexandra, Amambayeva Meruert");
 MODULE_DESCRIPTION("SIS2: Linux kernel module program to capture all network packets");
 
 struct packet_type packet;
+
 static struct timespec t;
 static struct nf_hook_ops *nfho = NULL;
+
 static struct iphdr *iph;
 char source[16], dest[16];
+
+static unsigned int protocol_num = 0;
+module_param(protocol_num, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
 void print_addresses(void){
     snprintf(source, 16, "%pI4", &iph->saddr);
@@ -60,9 +65,7 @@ int recieve_packet (struct sk_buff *skb, struct net_device *dev,
     return 0;
 }
 
-
-static unsigned int hfunc(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
-{
+static unsigned int hfunc(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
 	struct udphdr *udph;
 	if (!skb) { 
         return NF_ACCEPT; 
@@ -104,12 +107,9 @@ static int __init ram_init(void) {
 
 static void __exit ram_cleanup(void) {
     dev_remove_pack(&packet);
-
     nf_unregister_net_hook(&init_net, nfho);
     kfree(nfho);
-
     printk(KERN_INFO "@RAM Cleaning up module....\n");
-
 }
 
 module_init(ram_init);
