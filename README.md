@@ -3,9 +3,10 @@
 # Capturing network packets
 
 ## Team members:
-	Biryukova Alexandra
-	Savoskin Roman
-	Amambayeva Meruert
+	[Biryukova Alexandra] (https://github.com/AlexandraBiryukova)
+	[Savoskin Roman] (https://github.com/savoskin0502)
+	[Amambayeva Meruert] (https://github.com/hellomeruert)
+	
 	
 ### Goal of the project: 
 create a simple sniffer that can help to analyze and control packets in the network
