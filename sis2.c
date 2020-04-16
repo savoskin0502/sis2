@@ -11,7 +11,13 @@
 #include <linux/tcp.h>
 #include <linux/udp.h>
 #include <linux/time.h>
-
+/***
+ * SIMPLE SNIFFER THAT CAN HELP TO ANALYZE AND CONTROL PACKETS IN THE NETWORK
+ * The work of the program consists of several parts:
+ *     1. Settings for the packets that we will accept
+ *     2. Channel type determination
+ *     3. Packets filtering
+***/
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Savoskin Roman, Biryukova Alexandra, Amambayeva Meruert");
 MODULE_DESCRIPTION("SIS2: Linux kernel module program to capture all network packets");
@@ -42,7 +48,12 @@ void print_time(void) {
                    (t.tv_sec / 60) % (60),
                     t.tv_sec % 60);
 }
-
+/**
+ * Packet sockets are used to sending and receiving raw packets at the device driver
+ * Here we control all incoming packets of protocol that were passed, in our case these are 
+ * Internet protocol packets. All information with definition can be found by paths
+ * /usr/include/linux/if_packet.h/ and /usr/include/linux/in.h/
+**/
 int recieve_packet (struct sk_buff *skb, struct net_device *dev, 
                     struct packet_type *pt, struct net_device *orig_dev) {
     printk("\n\n------------------NEW PACKET RECIEVED------------------");
@@ -59,12 +70,21 @@ int recieve_packet (struct sk_buff *skb, struct net_device *dev,
     }
     iph = ip_hdr(skb);
     print_addresses();
-    // printk(KERN_CONT " Device: %s ; 0x%.4X ; 0x%.4X \n", skb->dev->name, 
-    //               ntohs(skb->protocol), ip_hdr(skb)->protocol);
     kfree_skb (skb);
     return 0;
 }
-
+/**
+ * In hfunc function we set our pointer on the packet ip header
+ * and after that can access all the information about the packet.
+ * Few examples of such information: destination and reciver IP, source information
+ * We don't provide user space handling via return NF_QUEUE, instead,  all control 
+ * is delivered to kernel space. Using NF_DROP we drop the packet and free the resources.
+ * We accept the packet by NF_ACCEPT, thus all protocols that were passed 
+ * to the module will dropped
+ * By struct ip_hdr->protocol we get information about protocol that was used
+ * for this packet
+ * If ip_hdr->protocol==protocol_num then packet should be dropped and accepted otherwise.
+**/
 static unsigned int hfunc(void *priv, struct sk_buff *skb, const struct nf_hook_state *state) {
 	if (!skb) { 
         return NF_ACCEPT; 
@@ -142,12 +162,15 @@ static unsigned int hfunc(void *priv, struct sk_buff *skb, const struct nf_hook_
 }
 
 static int __init ram_init(void) {
+    // We define which type of protocols will received
+    // In our case ETH_P_IP means that we will receive all Internet protocol packets
     packet.type = htons(ETH_P_IP);
     packet.dev = dev_get_by_name (&init_net, "enp0s3");
     packet.func = recieve_packet;
     dev_add_pack (&packet);
     printk(KERN_INFO "@RAM Module insertion completed successfully!\n");
-
+    // we register the filter in the input path before routing. To register a filter we specify
+    // that will work with ipv4 via PF_INET; to register more that one hook in the same place via NF_IP_PRI_FIRST
     nfho = (struct nf_hook_ops*)kcalloc(1, sizeof(struct nf_hook_ops), GFP_KERNEL);
     nfho->hook = (nf_hookfn*)hfunc;
     nfho->hooknum = NF_INET_PRE_ROUTING;
@@ -159,6 +182,7 @@ static int __init ram_init(void) {
 }
 
 static void __exit ram_cleanup(void) {
+
     dev_remove_pack(&packet);
     nf_unregister_net_hook(&init_net, nfho);
     kfree(nfho);
