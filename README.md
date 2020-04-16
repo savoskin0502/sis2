@@ -1,9 +1,11 @@
 # SIS 2 Project: Capturing network packets 
 ![Network](https://res-3.cloudinary.com/crunchbase-production/image/upload/c_lpad,h_256,w_256,f_auto,q_auto:eco/v1493701906/jwsxmtgk1rsjo9yp61ik.png)
 ## Team members:
-	BiryukovaAlexandra: https://github.com/AlexandraBiryukova
-	SavoskinRoman: https://github.com/savoskin0502
-	AmambayevaMeruert: https://github.com/hellomeruert
+Name | Github Link
+--- | ---
+Biryukova Alexandra | https://github.com/AlexandraBiryukova
+Savoskin Roman |  https://github.com/savoskin0502
+Amambayeva Meruert | https://github.com/hellomeruert
 	
 	
 ### Goal of the project: 
