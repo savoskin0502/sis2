@@ -28,22 +28,41 @@ static struct timespec t;
 static struct nf_hook_ops *nfho = NULL;
 
 static struct iphdr *iph;
+struct ethhdr *eth;
 char source[16], dest[16], protocolIp[16];
 
 static unsigned int protocol_num = 0;
 module_param(protocol_num, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
 void print_addresses(void){
+    printk("\n@RAM Ethernet Header\n");
+    printk("\t|-@RAM Source Address : %.2X-%.2X-%.2X-%.2X-%.2X-%.2X\n",eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
+    printk("\t|-@RAM Destination Address : %.2X-%.2X-%.2X-%.2X-%.2X-%.2X\n",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+	printk("\t|-@RAM Protocol : %d\n",eth->h_proto);
+    
+    printk("\n@RAM IP Header\n");
+    printk("\t|-@RAM Version : %d\n",(unsigned int)iph->version);
+    printk("\t|-@RAM Internet Header Length : %d DWORDS or %d Bytes\n",(unsigned int)iph->ihl,((unsigned int)(iph->ihl))*4);
+    printk("\t|-@RAM Header Checksum : %d\n",ntohs(iph->check));
+    printk("\t|-@RAM Total Length : %d Bytes\n",ntohs(iph->tot_len));
+    printk("\t|-@RAM Identification : %d\n",ntohs(iph->id));
+    printk("\t|-@RAM Time To Live : %d\n",(unsigned int)iph->ttl);
+    printk("\t|-@RAM Protocol : %d\n",(unsigned int)iph->protocol);
+    printk("\t|-@RAM Header Checksum : %d\n",ntohs(iph->check));
     snprintf(source, 16, "%pI4", &iph->saddr);
     snprintf(dest, 16, "%pI4", &iph->daddr);
-    printk("@RAM ID: %d\n", iph->id);
-    printk("@RAM SOURCE: %s\n", source);
-    printk("@RAM DESTINATION: %s\n", dest);
+    printk("\t|-@RAM SOURCE: %s\n", source);
+    printk("\t|-@RAM Destination IP : %s\n",dest);
+    printk("\n@RAM Main Info\n");
+    
+    // printk("@RAM DESTINATION: %s\n", dest);
 }
+
+
 
 void print_time(void) {
     getnstimeofday(&t);
-	printk("@RAM TIME: %.2lu:%.2lu:%2lu\n",
+	printk("\t|-@RAM TIME: %.2lu:%.2lu:%.2lu\n",
                    (t.tv_sec / 3600 + 6) % (24),
                    (t.tv_sec / 60) % (60),
                     t.tv_sec % 60);
@@ -57,19 +76,22 @@ void print_time(void) {
 int recieve_packet (struct sk_buff *skb, struct net_device *dev, 
                     struct packet_type *pt, struct net_device *orig_dev) {
     printk("\n\n------------------NEW PACKET RECIEVED------------------");
+    print_addresses();
     print_time();
     switch (skb->pkt_type) {
-    case PACKET_HOST: printk(KERN_INFO "@RAM TYPE: to us"); break;
-    case PACKET_BROADCAST: printk(KERN_INFO "@RAM TYPE: to all"); break;
-    case PACKET_MULTICAST: printk(KERN_INFO "@RAM TYPE: to group"); break;
-    case PACKET_OTHERHOST: printk(KERN_INFO "@RAM TYPE: to someone else"); break;
-    case PACKET_OUTGOING: printk(KERN_INFO "@RAM TYPE: outgoing"); break;
-    case PACKET_LOOPBACK: printk(KERN_INFO "@RAM TYPE: LOOPBACK"); break;
-    case PACKET_FASTROUTE: printk(KERN_INFO "@RAM TYPE: FASTROUTE"); break;
-    case PACKET_KERNEL: printk(KERN_INFO "@RAM TYPE: to kernel space"); break;
+    case PACKET_HOST: printk(KERN_INFO "\t|-@RAM TYPE: to us"); break;
+    case PACKET_BROADCAST: printk(KERN_INFO "\t|-@RAM TYPE: to all"); break;
+    case PACKET_MULTICAST: printk(KERN_INFO "\t|-@RAM TYPE: to group"); break;
+    case PACKET_OTHERHOST: printk(KERN_INFO "\t|-@RAM TYPE: to someone else"); break;
+    case PACKET_OUTGOING: printk(KERN_INFO "\t|-@RAM TYPE: outgoing"); break;
+    case PACKET_LOOPBACK: printk(KERN_INFO "\t|-@RAM TYPE: LOOPBACK"); break;
+    case PACKET_FASTROUTE: printk(KERN_INFO "\t|-@RAM TYPE: FASTROUTE"); break;
+    case PACKET_KERNEL: printk(KERN_INFO "\t|-@RAM TYPE: to kernel space"); break;
     }
+    eth = eth_hdr(skb);
     iph = ip_hdr(skb);
-    print_addresses();
+    
+    
     kfree_skb (skb);
     return 0;
 }
@@ -90,68 +112,69 @@ static unsigned int hfunc(void *priv, struct sk_buff *skb, const struct nf_hook_
         return NF_ACCEPT; 
     }
     printk("\n\n------------------PACKET IS FILTERED------------------");
-	iph = ip_hdr(skb);
+    eth = eth_hdr(skb);
+    iph = ip_hdr(skb);
     snprintf(protocolIp, 16, "%pI4", &iph->protocol);
     print_addresses();
-	printk("@RAM PROTOCOL %s", protocolIp);
+	printk("\t|-@RAM FULL PROTOCOL IP : %s", protocolIp);
     
     if (protocol_num == (iph->protocol)){
         switch (iph->protocol)
         {               
-            case IPPROTO_ICMP: printk("@RAM ICMP DROPPED"); return NF_DROP; break;
-            case IPPROTO_IGMP: printk("@RAM IGMP DROPPED"); return NF_DROP; break;
-            case IPPROTO_IPIP: printk("@RAM IPIP DROPPED"); return NF_DROP; break;
-            case IPPROTO_TCP: printk("@RAM TCP DROPPED"); return NF_DROP; break;
-            case IPPROTO_EGP: printk("@RAM EGP DROPPED"); return NF_DROP; break;
-            case IPPROTO_PUP: printk("@RAM PUP DROPPED"); return NF_DROP; break;
-            case IPPROTO_UDP: printk("@RAM UDP DROPPED"); return NF_DROP; break;
-            case IPPROTO_IDP: printk("@RAM IDP DROPPED"); return NF_DROP; break;
-            case IPPROTO_TP: printk("@RAM TP DROPPED"); return NF_DROP; break;
-            case IPPROTO_DCCP: printk("@RAM DCCP DROPPED"); return NF_DROP; break;
-            case IPPROTO_IPV6: printk("@RAM IPV6 DROPPED"); return NF_DROP; break;
-            case IPPROTO_RSVP: printk("@RAM RSVP DROPPsED"); return NF_DROP; break;
-            case IPPROTO_GRE: printk("@RAM GRE DROPPED"); return NF_DROP; break;
-            case IPPROTO_ESP: printk("@RAM ESP DROPPED"); return NF_DROP; break;
-            case IPPROTO_AH: printk("@RAM AH DROPPED"); return NF_DROP; break;
-            case IPPROTO_MTP: printk("@RAM MTP DROPPED"); return NF_DROP; break;
-            case IPPROTO_BEETPH: printk("@RAM BEETPH DROPPED"); return NF_DROP; break;
-            case IPPROTO_ENCAP: printk("@RAM ENCAP DROPPED"); return NF_DROP; break;
-            case IPPROTO_PIM: printk("@RAM PIM DROPPED"); return NF_DROP; break;
-            case IPPROTO_COMP: printk("@RAM COMP DROPPED"); return NF_DROP; break;
-            case IPPROTO_SCTP: printk("@RAM SCTP DROPPED"); return NF_DROP; break;
-            case IPPROTO_UDPLITE: printk("@RAM UDPLITE DROPPED"); return NF_DROP; break;
-            case IPPROTO_MPLS: printk("@RAM MPLS DROPPED"); return NF_DROP; break;
-            case IPPROTO_RAW: printk("@RAM RAW DROPPED"); return NF_DROP; break;
+            case IPPROTO_ICMP: printk("\t|-@RAM ICMP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_IGMP: printk("\t|-@RAM IGMP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_IPIP: printk("\t|-@RAM IPIP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_TCP: printk("\t|-@RAM TCP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_EGP: printk("\t|-@RAM EGP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_PUP: printk("\t|-@RAM PUP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_UDP: printk("\t|-@RAM UDP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_IDP: printk("\t|-@RAM IDP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_TP: printk("\t|-@RAM TP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_DCCP: printk("\t|-@RAM DCCP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_IPV6: printk("\t|-@RAM IPV6 : DROPPED"); return NF_DROP; break;
+            case IPPROTO_RSVP: printk("\t|-@RAM RSVP : DROPPsED"); return NF_DROP; break;
+            case IPPROTO_GRE: printk("\t|-@RAM GRE : DROPPED"); return NF_DROP; break;
+            case IPPROTO_ESP: printk("\t|-@RAM ESP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_AH: printk("\t|-@RAM AH : DROPPED"); return NF_DROP; break;
+            case IPPROTO_MTP: printk("\t|-@RAM MTP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_BEETPH: printk("\t|-@RAM BEETPH : DROPPED"); return NF_DROP; break;
+            case IPPROTO_ENCAP: printk("\t|-@RAM ENCAP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_PIM: printk("\t|-@RAM PIM : DROPPED"); return NF_DROP; break;
+            case IPPROTO_COMP: printk("\t|-@RAM COMP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_SCTP: printk("\t|-@RAM SCTP : DROPPED"); return NF_DROP; break;
+            case IPPROTO_UDPLITE: printk("\t|-@RAM UDPLITE : DROPPED"); return NF_DROP; break;
+            case IPPROTO_MPLS: printk("\t|-@RAM MPLS : DROPPED"); return NF_DROP; break;
+            case IPPROTO_RAW: printk("\t|-@RAM RAW : DROPPED"); return NF_DROP; break;
             default:
                 break;
         }
     }else {
         switch (iph->protocol)
         {               
-            case IPPROTO_ICMP: printk("@RAM ICMP ACCEPTED"); break;
-            case IPPROTO_IGMP: printk("@RAM IGMP ACCEPTED"); break;
-            case IPPROTO_IPIP: printk("@RAM IPIP ACCEPTED"); break;
-            case IPPROTO_TCP: printk("@RAM TCP ACCEPTED"); break;
-            case IPPROTO_EGP: printk("@RAM EGP ACCEPTED");  break;
-            case IPPROTO_PUP: printk("@RAM PUP ACCEPTED");  break;
-            case IPPROTO_UDP: printk("@RAM UDP ACCEPTED"); break;
-            case IPPROTO_IDP: printk("@RAM IDP ACCEPTED"); break;
-            case IPPROTO_TP: printk("@RAM TP ACCEPTED"); break;
-            case IPPROTO_DCCP: printk("@RAM DCCP ACCEPTED"); break;
-            case IPPROTO_IPV6: printk("@RAM IPV6 ACCEPTED");  break;
-            case IPPROTO_RSVP: printk("@RAM RSVP ACCEPTED"); break;
-            case IPPROTO_GRE: printk("@RAM GRE ACCEPTED"); break;
-            case IPPROTO_ESP: printk("@RAM ESP ACCEPTED");  break;
-            case IPPROTO_AH: printk("@RAM AH ACCEPTED"); break;
-            case IPPROTO_MTP: printk("@RAM MTP ACCEPTED"); break;
-            case IPPROTO_BEETPH: printk("@RAM BEETPH ACCEPTED"); break;
-            case IPPROTO_ENCAP: printk("@RAM ENCAP ACCEPTED"); break;
-            case IPPROTO_PIM: printk("@RAM PIM ACCEPTED"); break;
-            case IPPROTO_COMP: printk("@RAM COMP ACCEPTED"); break;
-            case IPPROTO_SCTP: printk("@RAM SCTP ACCEPTED"); break;
-            case IPPROTO_UDPLITE: printk("@RAM UDPLITE ACCEPTED"); break;
-            case IPPROTO_MPLS: printk("@RAM MPLS ACCEPTED"); break;
-            case IPPROTO_RAW: printk("@RAM RAW ACCEPTED"); break;
+            case IPPROTO_ICMP: printk("\t|-@RAM ICMP : ACCEPTED"); break;
+            case IPPROTO_IGMP: printk("\t|-@RAM IGMP : ACCEPTED"); break;
+            case IPPROTO_IPIP: printk("\t|-@RAM IPIP : ACCEPTED"); break;
+            case IPPROTO_TCP: printk("\t|-@RAM TCP : ACCEPTED"); break;
+            case IPPROTO_EGP: printk("\t|-@RAM EGP : ACCEPTED");  break;
+            case IPPROTO_PUP: printk("\t|-@RAM PUP : ACCEPTED");  break;
+            case IPPROTO_UDP: printk("\t|-@RAM UDP : ACCEPTED"); break;
+            case IPPROTO_IDP: printk("\t|-@RAM IDP : ACCEPTED"); break;
+            case IPPROTO_TP: printk("\t|-@RAM TP : ACCEPTED"); break;
+            case IPPROTO_DCCP: printk("\t|-@RAM DCCP : ACCEPTED"); break;
+            case IPPROTO_IPV6: printk("\t|-@RAM IPV6 : ACCEPTED");  break;
+            case IPPROTO_RSVP: printk("\t|-@RAM RSVP : ACCEPTED"); break;
+            case IPPROTO_GRE: printk("\t|-@RAM GRE : ACCEPTED"); break;
+            case IPPROTO_ESP: printk("\t|-@RAM ESP : ACCEPTED");  break;
+            case IPPROTO_AH: printk("\t|-@RAM AH : ACCEPTED"); break;
+            case IPPROTO_MTP: printk("\t|-@RAM MTP : ACCEPTED"); break;
+            case IPPROTO_BEETPH: printk("\t|-@RAM BEETPH : ACCEPTED"); break;
+            case IPPROTO_ENCAP: printk("\t|-@RAM ENCAP : ACCEPTED"); break;
+            case IPPROTO_PIM: printk("\t|-@RAM PIM : ACCEPTED"); break;
+            case IPPROTO_COMP: printk("\t|-@RAM COMP : ACCEPTED"); break;
+            case IPPROTO_SCTP: printk("\t|-@RAM SCTP : ACCEPTED"); break;
+            case IPPROTO_UDPLITE: printk("\t|-@RAM UDPLITE : ACCEPTED"); break;
+            case IPPROTO_MPLS: printk("\t|-@RAM MPLS : ACCEPTED"); break;
+            case IPPROTO_RAW: printk("\t|-@RAM RAW : ACCEPTED"); break;
             default:
                 break;
         }
